@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Monitoring Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+        }
+        
+        .dashboard-header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px 0;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .metric-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        }
+        
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .metric-label {
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+        
+        .progress-bar-cpu { background-color: #667eea !important; }
+        .progress-bar-memory { background-color: #f093fb !important; }
+        .progress-bar-disk { background-color: #4facfe !important; }
+        
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .alert-item {
+            background: white;
+            border-left: 5px solid #667eea;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .alert-item.critical { border-left-color: #dc3545; }
+        .alert-item.warning { border-left-color: #ffc107; }
+        .alert-item.info { border-left-color: #17a2b8; }
+        
+        .process-table {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .table-responsive {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .refresh-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .refresh-button:hover {
+            transform: scale(1.05);
+            color: white;
+        }
+        
+        .status-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        .badge-running { background: #d1e7dd; color: #0f5132; }
+        .badge-sleeping { background: #cfe2ff; color: #084298; }
+        .badge-stopped { background: #f8d7da; color: #842029; }
+        
+        .loading {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .timestamp {
+            color: #999;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-header">
+        <div class="container-fluid">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1><i class="bi bi-graph-up"></i> System Monitoring Dashboard</h1>
+                    <p class="text-muted mb-0">Real-time system performance monitoring</p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <button class="refresh-button" onclick="refreshAllData()">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid" style="padding: 0 20px;">
+        <!-- Key Metrics Row -->
+        <div class="row" id="metrics-container">
+            <!-- Metrics will be loaded here -->
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h5>CPU Usage History</h5>
+                    <canvas id="cpuChart"></canvas>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h5>Memory Usage History</h5>
+                    <canvas id="memoryChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alerts Section -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h5><i class="bi bi-exclamation-triangle"></i> Recent Alerts</h5>
+                    <div id="alerts-container">
+                        <p class="text-muted">Loading alerts...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Disk Usage -->
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h5>Disk Usage by Partition</h5>
+                    <canvas id="diskChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Processes -->
+        <div class="row">
+            <div class="col-12">
+                <div class="process-table">
+                    <div style="padding: 20px;">
+                        <h5><i class="bi bi-list"></i> Top Processes by Memory Usage</h5>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead style="background: #f8f9fa;">
+                                <tr>
+                                    <th>Process Name</th>
+                                    <th>PID</th>
+                                    <th>Status</th>
+                                    <th>Memory (MB)</th>
+                                    <th>CPU %</th>
+                                    <th>Threads</th>
+                                </tr>
+                            </thead>
+                            <tbody id="processes-container">
+                                <tr><td colspan="6" class="text-center text-muted">Loading processes...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer style="text-align: center; padding: 30px; color: white; margin-top: 50px;">
+        <p>System Monitoring Dashboard | Last updated: <span id="last-update" class="timestamp">--:--:--</span></p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Chart instances
+        let cpuChart, memoryChart, diskChart;
+        let metricsHistory = [];
+        
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshAllData();
+            // Refresh every 5 seconds
+            setInterval(refreshAllData, 5000);
+        });
+
+        async function refreshAllData() {
+            await loadMetrics();
+            await loadProcesses();
+            await loadAlerts();
+            updateTimestamp();
+        }
+
+        async function loadMetrics() {
+            try {
+                const response = await fetch('/api/metrics/current/');
+                const data = await response.json();
+                displayMetrics(data);
+                
+                // Load history
+                const historyResponse = await fetch('/api/metrics/history/?hours=1');
+                metricsHistory = await historyResponse.json();
+                updateCharts();
+            } catch (error) {
+                console.error('Error loading metrics:', error);
+            }
+        }
+
+        function displayMetrics(data) {
+            const container = document.getElementById('metrics-container');
+            const cards = [
+                {
+                    label: 'CPU Usage',
+                    value: data.cpu_percent.toFixed(1) + '%',
+                    icon: 'cpu',
+                    color: '#667eea',
+                    progress: data.cpu_percent
+                },
+                {
+                    label: 'Memory Usage',
+                    value: data.memory_percent.toFixed(1) + '%',
+                    icon: 'memory',
+                    color: '#f093fb',
+                    progress: data.memory_percent
+                },
+                {
+                    label: 'Disk Usage',
+                    value: data.disk_percent.toFixed(1) + '%',
+                    icon: 'hdd',
+                    color: '#4facfe',
+                    progress: data.disk_percent
+                },
+                {
+                    label: 'Memory Used',
+                    value: (data.memory_used / (1024**3)).toFixed(2) + ' GB',
+                    icon: 'graph-down',
+                    color: '#764ba2'
+                }
+            ];
+
+            container.innerHTML = cards.map(card => `
+                <div class="col-md-3 col-sm-6">
+                    <div class="metric-card">
+                        <div style="color: ${card.color}; font-size: 2rem; margin-bottom: 10px;">
+                            <i class="bi bi-${card.icon}"></i>
+                        </div>
+                        <div class="metric-value">${card.value}</div>
+                        <div class="metric-label">${card.label}</div>
+                        ${card.progress !== undefined ? `
+                            <div class="progress mt-2" style="height: 6px;">
+                                <div class="progress-bar" style="width: ${card.progress}%; background-color: ${card.color};"></div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function loadProcesses() {
+            try {
+                const response = await fetch('/api/processes/top_processes/?limit=10');
+                const processes = await response.json();
+                displayProcesses(processes);
+            } catch (error) {
+                console.error('Error loading processes:', error);
+            }
+        }
+
+        function displayProcesses(processes) {
+            const container = document.getElementById('processes-container');
+            container.innerHTML = processes.map(proc => `
+                <tr>
+                    <td><strong>${proc.name}</strong></td>
+                    <td>${proc.pid}</td>
+                    <td><span class="status-badge badge-${proc.status}">${proc.status}</span></td>
+                    <td>${proc.memory_mb.toFixed(2)} MB</td>
+                    <td>${proc.cpu_percent.toFixed(1)}%</td>
+                    <td>${proc.num_threads}</td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadAlerts() {
+            try {
+                const response = await fetch('/api/alerts/unresolved/');
+                const alerts = await response.json();
+                displayAlerts(alerts);
+            } catch (error) {
+                console.error('Error loading alerts:', error);
+            }
+        }
+
+        function displayAlerts(alerts) {
+            const container = document.getElementById('alerts-container');
+            if (alerts.length === 0) {
+                container.innerHTML = '<p class="text-success"><i class="bi bi-check-circle"></i> No active alerts</p>';
+                return;
+            }
+
+            container.innerHTML = alerts.slice(0, 5).map(alert => `
+                <div class="alert-item ${alert.severity}">
+                    <div style="flex: 1;">
+                        <strong>${alert.alert_type_display}</strong>
+                        <p class="mb-0 text-muted" style="font-size: 0.9rem;">${alert.message}</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <button class="btn btn-sm btn-outline-primary" onclick="resolveAlert(${alert.id})">
+                            Resolve
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function resolveAlert(alertId) {
+            try {
+                await fetch(`/api/alerts/${alertId}/resolve/`, { method: 'POST' });
+                loadAlerts();
+            } catch (error) {
+                console.error('Error resolving alert:', error);
+            }
+        }
+
+        function updateCharts() {
+            if (metricsHistory.length === 0) return;
+
+            const labels = metricsHistory.map(m => {
+                const date = new Date(m.timestamp);
+                return date.toLocaleTimeString();
+            });
+
+            // CPU Chart
+            const cpuCtx = document.getElementById('cpuChart').getContext('2d');
+            if (cpuChart) cpuChart.destroy();
+            cpuChart = new Chart(cpuCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'CPU Usage %',
+                        data: metricsHistory.map(m => m.cpu_percent),
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, max: 100 }
+                    }
+                }
+            });
+
+            // Memory Chart
+            const memCtx = document.getElementById('memoryChart').getContext('2d');
+            if (memoryChart) memoryChart.destroy();
+            memoryChart = new Chart(memCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Memory Usage %',
+                        data: metricsHistory.map(m => m.memory_percent),
+                        borderColor: '#f093fb',
+                        backgroundColor: 'rgba(240, 147, 251, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, max: 100 }
+                    }
+                }
+            });
+
+            // Disk Chart (pie)
+            const diskCtx = document.getElementById('diskChart').getContext('2d');
+            if (diskChart) diskChart.destroy();
+            const latestMetric = metricsHistory[metricsHistory.length - 1];
+            diskChart = new Chart(diskCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['Used', 'Free'],
+                    datasets: [{
+                        data: [
+                            latestMetric.disk_used,
+                            latestMetric.disk_total - latestMetric.disk_used
+                        ],
+                        backgroundColor: ['#667eea', '#e0e0e0']
+                    }]
+                }
+            });
+        }
+
+        function updateTimestamp() {
+            document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+        }
+
+        function refreshAllData() {
+            loadMetrics();
+            loadProcesses();
+            loadAlerts();
+        }
+    </script>
+</body>
+</html>
