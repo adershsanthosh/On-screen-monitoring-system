@@ -1,0 +1,1 @@
+# App ready signal handler

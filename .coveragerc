@@ -1,0 +1,10 @@
+[DJANGO]
+DJANGO_SETTINGS_MODULE = config.settings
+
+[run]
+omit =
+    */tests.py
+    */test_*.py
+    */__pycache__/*
+    */migrations/*
+    setup.py

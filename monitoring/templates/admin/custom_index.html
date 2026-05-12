@@ -1,0 +1,10 @@
+{% extends "admin/index.html" %}
+
+{% block content %}
+<div class="module aligned">
+    <h2>Live Exam Activity</h2>
+    <p>View student tab changes and focus events in real time.</p>
+    <p><a class="button" href="{% url 'live-feed' %}">Open Live Feed</a></p>
+</div>
+{{ block.super }}
+{% endblock %}

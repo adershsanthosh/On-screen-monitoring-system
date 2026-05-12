@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Login & Enroll</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #f8fafc;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+        .card {
+            width: 100%;
+            max-width: 700px;
+            border: none;
+            border-radius: 24px;
+            background: rgba(15, 23, 42, 0.95);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+        }
+        .card-header {
+            background: transparent;
+            border-bottom: none;
+        }
+        .form-control {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            color: #e2e8f0;
+        }
+        .form-control:focus {
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+            box-shadow: none;
+            border-color: #6366f1;
+        }
+        .btn-primary {
+            background: #6366f1;
+            border: none;
+        }
+        .alert-light {
+            background: rgba(248, 250, 252, 0.12);
+            color: #f8fafc;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+        .badge-status {
+            background: #22c55e;
+            color: #0f172a;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="card-header text-center py-5">
+            <h1 class="display-6">Student Exam Portal</h1>
+            <p class="text-secondary">Log in and enroll for your scheduled exam.</p>
+        </div>
+        <div class="card-body p-5">
+            {% if message %}
+                <div class="alert alert-light" role="alert">
+                    {{ message }}
+                </div>
+            {% endif %}
+
+            {% if enrolled %}
+                <div class="mb-4">
+                    <p class="mb-1"><strong>Student ID:</strong> {{ student_id }}</p>
+                    <p class="mb-1"><strong>Exam ID:</strong> {{ exam_id }}</p>
+                    <span class="badge badge-status">Enrolled</span>
+                </div>
+                <div class="mb-4">
+                    <h5>Exam Instructions</h5>
+                    <ul>
+                        <li>Use your browser in fullscreen mode for the best experience.</li>
+                        <li>Do not refresh the page while the exam is active.</li>
+                        <li>Your activity will be monitored and recorded.</li>
+                    </ul>
+                </div>
+                <div id="activity-status" class="alert alert-light" role="alert">
+                    Monitoring your exam activity in real time...
+                </div>
+                <a href="/" class="btn btn-outline-light">Return to Dashboard</a>
+            {% else %}
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="student_id" class="form-label">Student ID</label>
+                        <input type="text" class="form-control" id="student_id" name="student_id" placeholder="Enter your student ID" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" placeholder="Enter your password">
+                        <div class="form-text text-secondary">This is a simple login interface for exam access.</div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="exam_id" class="form-label">Exam ID</label>
+                        <input type="text" class="form-control" id="exam_id" name="exam_id" value="exam1" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Login & Enroll</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+    {% if enrolled %}
+    <script>
+        const examEnrolled = true;
+        const studentId = "{{ student_id|escapejs }}";
+        const examId = "{{ exam_id|escapejs }}";
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                document.cookie.split(';').forEach(function(cookie) {
+                    const trimmed = cookie.trim();
+                    if (trimmed.startsWith(name + '=')) {
+                        cookieValue = decodeURIComponent(trimmed.substring(name.length + 1));
+                    }
+                });
+            }
+            return cookieValue;
+        }
+
+        const csrftoken = getCookie('csrftoken');
+        const statusEl = document.getElementById('activity-status');
+
+        async function sendExamEvent(eventType, details = '') {
+            if (!examEnrolled) return;
+            const payload = {
+                student_id: studentId,
+                exam_id: examId,
+                event_type: eventType,
+                details: details,
+            };
+
+            try {
+                await fetch('/api/exam-activity/report/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken,
+                    },
+                    body: JSON.stringify(payload),
+                });
+                statusEl.textContent = `Last event: ${eventType.replace(/_/g, ' ')}.`;
+            } catch (error) {
+                console.error('Exam activity report failed:', error);
+                statusEl.textContent = 'Unable to send activity update. Please check your connection.';
+            }
+        }
+
+        function reportBeacon(eventType, details = '') {
+            if (!navigator.sendBeacon) {
+                return sendExamEvent(eventType, details);
+            }
+            try {
+                const url = '/api/exam-activity/report/';
+                const payload = {
+                    student_id: studentId,
+                    exam_id: examId,
+                    event_type: eventType,
+                    details: details,
+                };
+                const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+                navigator.sendBeacon(url, blob);
+            } catch (error) {
+                console.warn('Beacon failed:', error);
+            }
+        }
+
+        window.addEventListener('focus', function() {
+            sendExamEvent('gained_focus', 'Window gained focus');
+        });
+
+        window.addEventListener('blur', function() {
+            sendExamEvent('lost_focus', 'Window lost focus');
+        });
+
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                sendExamEvent('tab_hidden', 'Tab hidden or minimized');
+            } else {
+                sendExamEvent('tab_visible', 'Tab visible again');
+            }
+        });
+
+        window.addEventListener('beforeunload', function() {
+            reportBeacon('page_unload', 'Student left or refreshed the exam page');
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            sendExamEvent('exam_loaded', 'Student exam page loaded and monitoring started');
+        });
+    </script>
+    {% endif %}
+</body>
+</html>
