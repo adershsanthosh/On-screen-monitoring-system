@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import render
 from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from datetime import timedelta
 
 from .models import SystemMetrics, ProcessInfo, Alert, MonitoringConfig, ExamActivity, ExamNotification
@@ -156,6 +158,7 @@ class AlertViewSet(viewsets.ModelViewSet):
         return Response({'resolved_count': count})
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class ExamActivityViewSet(viewsets.ModelViewSet):
     """API endpoint for exam activity events"""
     queryset = ExamActivity.objects.all().order_by('-timestamp')
@@ -191,6 +194,7 @@ class ExamActivityViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class ExamNotificationViewSet(viewsets.ModelViewSet):
     """API endpoint for student exam notifications"""
     queryset = ExamNotification.objects.filter(active=True).order_by('-created_at')
@@ -207,6 +211,7 @@ class ExamNotificationViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(exam_id__iexact=exam_id)
         return queryset
 
+    @method_decorator(csrf_exempt)
     @action(detail=False, methods=['get'])
     def active(self, request):
         """Get active notifications for the student exam screen"""
