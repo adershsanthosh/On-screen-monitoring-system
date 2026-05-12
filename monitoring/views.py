@@ -39,6 +39,16 @@ def exam_page(request):
                 event_type='exam_loaded',
                 details='Student enrolled and exam session initialized.'
             )
+            
+            # Create enrollment notification
+            ExamNotification.objects.create(
+                student_id=student_id,
+                exam_id=exam_id,
+                message=f'Welcome {student_id}! You have been enrolled for exam {exam_id}. Your activity is being monitored.',
+                severity='info',
+                active=True
+            )
+            
             request.session['student_id'] = student_id
             request.session['exam_id'] = exam_id
             enrolled = True

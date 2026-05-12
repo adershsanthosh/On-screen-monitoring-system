@@ -35,4 +35,16 @@ app.conf.beat_schedule = {
         'task': 'monitoring.tasks.cleanup_old_data',
         'schedule': crontab(hour=2, minute=0),  # Daily at 2 AM
     },
+    'notify-suspicious-activity': {
+        'task': 'monitoring.tasks.notify_suspicious_exam_activity',
+        'schedule': 5.0,  # Every 5 seconds
+    },
+    'notify-system-alerts': {
+        'task': 'monitoring.tasks.notify_system_alerts',
+        'schedule': 5.0,  # Every 5 seconds
+    },
+    'cleanup-old-notifications': {
+        'task': 'monitoring.tasks.cleanup_old_notifications',
+        'schedule': crontab(hour=3, minute=0),  # Daily at 3 AM
+    },
 }
